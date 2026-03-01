@@ -1,63 +1,108 @@
 # Cursor Agent — OpenClaw Plugin
 
-English | [中文](README.zh-CN.md)
+**Invoke the local Cursor Agent CLI directly from OpenClaw chat conversations**
 
-Invoke the local Cursor Agent CLI directly from OpenClaw chat conversations via the `/cursor` command to analyze, troubleshoot, and modify project code. Results are returned verbatim without LLM re-summarization. Also supports registration as a PI Agent Tool for automatic invocation when the user doesn't use the command explicitly.
+English | [中文](README_CN.md)
 
-## Key Features
+---
 
-- Direct invocation via `/cursor` command with verbatim result passthrough (bypasses LLM agent)
-- Optional Agent Tool registration for automatic PI Agent invocation (fallback mechanism)
-- Automatically loads project context from `.cursor/rules`, `AGENTS.md`, etc.
-- Supports enabling project-configured MCP servers (GitLab, databases, monitoring, etc.)
-- Three execution modes: `agent` (default, can modify files), `ask` (read-only analysis), `plan` (generate plans)
-- Session management: continue/resume previous sessions
-- Multi-project mapping table for quick project switching by name
-- Robust subprocess management: isolated process groups, two-phase graceful termination, concurrency control, Gateway exit cleanup
-- Automatic long content splitting into multiple messages
+> The real power of AI coding isn't in a single IDE — it's in connecting AI agents across your workflow.
+
+## What is Cursor Agent Plugin?
+
+**Cursor Agent** is an OpenClaw Gateway plugin that bridges your chat conversations with the Cursor Agent CLI. It allows you to analyze, troubleshoot, and modify project code through simple `/cursor` commands — with results returned verbatim, no LLM re-summarization.
+
+**Tech Stack:**
+
+* **Runtime**: Node.js + TypeScript + ESM
+* **Build**: esbuild (single-file bundle)
+* **Platform**: OpenClaw Gateway Plugin System
+* **Backend**: Cursor Agent CLI (uses your Cursor subscription)
+
+## Features
+
+### ⚡ Direct CLI Invocation
+
+Use the `/cursor` command to invoke Cursor Agent CLI with zero abstraction overhead.
+
+| Feature | Description |
+|---------|-------------|
+| **Verbatim Results** | CLI output returned directly — no LLM re-summarization |
+| **Three Modes** | `agent` (modify files), `ask` (read-only), `plan` (generate plans) |
+| **Project Mapping** | Quick project switching by name via mapping table |
+| **Session Management** | Continue or resume previous analysis sessions |
+| **Context Loading** | Automatically loads `.cursor/rules`, `AGENTS.md`, etc. |
+
+### 🔌 MCP Server Integration
+
+Enable project-configured MCP servers for extended capabilities.
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-Enable** | MCP servers enabled by default (`--approve-mcps`) |
+| **Flexible Sources** | GitLab, databases, monitoring, and more |
+| **Per-Project Config** | Each project can have its own MCP configuration |
+
+### 🤖 Agent Tool (Fallback Invocation)
+
+When users don't use the `/cursor` command, PI Agent can automatically invoke Cursor CLI.
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-Detection** | PI Agent determines when code analysis is needed |
+| **Safe Default** | Defaults to `ask` mode (read-only) for safety |
+| **Configurable** | Enable/disable via `enableAgentTool` setting |
+
+### 🛡️ Robust Process Management
+
+Enterprise-grade subprocess management for reliability.
+
+| Feature | Description |
+|---------|-------------|
+| **Isolated Process Groups** | `detached: true` on Unix prevents accidental signal kills |
+| **Two-Phase Termination** | SIGTERM → 5s → SIGKILL for graceful shutdown |
+| **Concurrency Control** | Configurable max concurrent CLI processes |
+| **Gateway Exit Cleanup** | All subprocesses cleaned up automatically on exit |
+| **No-Output Timeout** | Detects hung processes when no output is produced |
 
 ## Prerequisites
 
 | Dependency | Description |
 |------------|-------------|
-| Cursor Agent CLI | Must be installed locally (`agent` command, see installation steps below) |
+| Cursor Agent CLI | Must be installed locally (`agent` command) |
 | Cursor Subscription | CLI uses model quota from your Cursor subscription |
 | OpenClaw Gateway | v2026.2.24+ |
 
-## Installing Cursor Agent CLI
+## Quick Start
 
-### Linux / macOS
+### 1. Install Cursor Agent CLI
+
+**Linux / macOS:**
 
 ```bash
 curl https://cursor.com/install -fsSL | bash
 ```
 
-After installation, you may need to add `$HOME/.local/bin` to your PATH:
+You may need to add `$HOME/.local/bin` to your PATH:
 
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### Windows
-
-Run in PowerShell:
+**Windows (PowerShell):**
 
 ```powershell
 irm https://cursor.com/install | iex
 ```
 
-Default installation path: `%LOCALAPPDATA%\cursor-agent\agent.cmd`.
-
-### Verify Installation
+**Verify installation:**
 
 ```bash
 agent --version
 ```
 
-### Authentication
-
-First-time usage requires logging into your Cursor account:
+### 2. Authenticate
 
 ```bash
 agent login
@@ -69,9 +114,9 @@ Or set the API key via environment variable:
 export CURSOR_API_KEY="your-api-key"
 ```
 
-## Plugin Installation
+### 3. Install the Plugin
 
-### Option 1: Source Path Loading (Development Mode)
+**Option A: Source Path Loading (Development)**
 
 Add the plugin source path to `plugins.load.paths` in `~/.openclaw/openclaw.json`:
 
@@ -85,20 +130,14 @@ Add the plugin source path to `plugins.load.paths` in `~/.openclaw/openclaw.json
 }
 ```
 
-### Option 2: tgz Package Install
+**Option B: tgz Package Install**
 
 ```bash
-# Build and pack
-cd plugins/cursor-agent
 npm ci && npm run build && npm pack
-
-# Install via OpenClaw CLI
 openclaw plugin install cursor-agent-0.1.0.tgz
 ```
 
-## Configuration
-
-Configure the plugin in `~/.openclaw/openclaw.json`:
+### 4. Configure
 
 ```json
 {
@@ -123,64 +162,13 @@ Configure the plugin in `~/.openclaw/openclaw.json`:
 }
 ```
 
-### Configuration Options
+### 5. Start Using
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `projects` | `object` | `{}` | Project name to local absolute path mapping |
-| `agentPath` | `string` | auto-detect | Full path to Cursor Agent CLI |
-| `defaultTimeoutSec` | `number` | `600` | Maximum execution time per invocation (seconds) |
-| `noOutputTimeoutSec` | `number` | `120` | No-output timeout (seconds); process is considered hung if no output for this duration |
-| `model` | `string` | CLI default | Model for Cursor Agent to use |
-| `enableMcp` | `boolean` | `true` | Whether to enable MCP servers (`--approve-mcps`) |
-| `maxConcurrent` | `number` | `3` | Maximum concurrent Cursor CLI processes |
-| `enableAgentTool` | `boolean` | `true` | Whether to register Agent Tool for PI Agent auto-invocation |
+```
+/cursor my-project analyze the auth module and find potential security issues
+```
 
 ## Usage
-
-After configuration and Gateway restart, use the `/cursor` command in OpenClaw conversations:
-
-### Basic Usage
-
-```
-/cursor my-project analyze the auth module implementation and find potential security issues
-```
-
-### Specifying Mode
-
-```
-/cursor my-project --mode ask explain the architecture of src/auth
-/cursor my-project --mode plan design a new caching layer
-```
-
-### Session Management
-
-```
-# Continue previous session
-/cursor my-project --continue are there other security issues?
-
-# Resume a specific session (session ID is shown in the footer of each result)
-/cursor my-project --resume abc123 add unit tests based on this analysis
-```
-
-### Viewing Session History
-
-Each execution result footer displays the session ID (e.g., `💬 97fe5ea8-...`), which can be used with `--resume` to continue that session.
-
-To view the full session history in the terminal, use the Cursor Agent CLI directly:
-
-```bash
-# List sessions in the project directory
-cd /path/to/project
-agent ls
-
-# Interactively resume a session
-agent resume
-# Or specify a session ID
-agent --resume <chatId>
-```
-
-For more information, see the [Cursor Agent CLI documentation](https://cursor.com/docs/cli/using).
 
 ### Command Format
 
@@ -196,11 +184,88 @@ For more information, see the [Cursor Agent CLI documentation](https://cursor.co
 | `--continue` | Continue previous session |
 | `--resume <chatId>` | Resume a specific session |
 
+### Examples
+
+```bash
+# Read-only analysis
+/cursor my-project --mode ask explain the architecture of src/auth
+
+# Generate a plan
+/cursor my-project --mode plan design a new caching layer
+
+# Continue previous session
+/cursor my-project --continue are there other security issues?
+
+# Resume a specific session (ID shown in result footer)
+/cursor my-project --resume abc123 add unit tests based on this analysis
+```
+
+### Session History
+
+Each execution result footer displays a session ID (e.g., `💬 97fe5ea8-...`). Use it with `--resume` to continue that session.
+
+To browse sessions in terminal:
+
+```bash
+cd /path/to/project
+agent ls            # List sessions
+agent resume        # Interactive resume
+agent --resume <id> # Resume by ID
+```
+
+See the [Cursor Agent CLI documentation](https://cursor.com/docs/cli/using) for more.
+
+## Configuration Reference
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `projects` | `object` | `{}` | Project name to local absolute path mapping |
+| `agentPath` | `string` | auto-detect | Full path to Cursor Agent CLI |
+| `defaultTimeoutSec` | `number` | `600` | Maximum execution time per invocation (seconds) |
+| `noOutputTimeoutSec` | `number` | `120` | No-output timeout; process considered hung after this duration |
+| `model` | `string` | CLI default | Model for Cursor Agent to use |
+| `enableMcp` | `boolean` | `true` | Enable MCP servers (`--approve-mcps`) |
+| `maxConcurrent` | `number` | `3` | Maximum concurrent Cursor CLI processes |
+| `enableAgentTool` | `boolean` | `true` | Register Agent Tool for PI Agent auto-invocation |
+
+## Agent Tool vs /cursor Command
+
+| Feature | `/cursor` Command | Agent Tool |
+|---------|-------------------|------------|
+| Trigger | User explicitly types | PI Agent auto-determines |
+| Result handling | Returned directly, bypasses LLM | Returned as tool result |
+| Default mode | `agent` (can modify files) | `ask` (read-only analysis) |
+| Session management | Supports --continue/--resume | Not supported |
+
+To enable Agent Tool:
+
+1. Ensure `enableAgentTool` is `true` (default)
+2. Add `cursor_agent` or `group:plugins` to `tools.allow` in OpenClaw configuration
+
+## Architecture
+
+```
+src/
+├── index.ts              # Plugin entry, registers /cursor command + cursor_agent tool
+├── types.ts              # Type definitions (config, events, parsed command)
+├── parser.ts             # Cursor Agent stream-json output parser
+├── runner.ts             # CLI process management, timeout control, event stream
+├── formatter.ts          # Event stream formatting to Markdown output
+├── process-registry.ts   # Global process registry, concurrency control, cleanup
+└── tool.ts               # Agent Tool factory function
+```
+
+### Invocation Paths
+
+```
+User Message
+  ├─ /cursor command ──→ registerCommand handler ──→ runCursorAgent ──→ result returned to user
+  └─ Regular chat ──→ PI Agent ──→ cursor_agent tool ──→ runCursorAgent ──→ tool result
+```
+
 ## Development
 
 ```bash
-cd plugins/cursor-agent
-
 # Install dependencies
 npm install
 
@@ -210,59 +275,12 @@ npm run dev
 # Build
 npm run build
 
-# Pack
+# Run tests
+npm test
+
+# Pack for distribution
 npm pack
 ```
-
-## Agent Tool (Fallback Invocation)
-
-In addition to the `/cursor` command, the plugin can register a `cursor_agent` Agent Tool, enabling PI Agent to automatically invoke Cursor CLI during conversations.
-
-### How It Works
-
-When a user mentions code analysis needs in a conversation without using the `/cursor` command, PI Agent can automatically invoke the `cursor_agent` tool.
-
-### Enabling
-
-1. Ensure `enableAgentTool` is `true` (default)
-2. Add `cursor_agent` or `group:plugins` to `tools.allow` in OpenClaw configuration
-
-### Differences from /cursor Command
-
-| Feature | `/cursor` Command | Agent Tool |
-|---------|-------------------|------------|
-| Trigger | User explicitly types | PI Agent auto-determines |
-| Result handling | Returned directly, bypasses LLM | Returned as tool result |
-| Default mode | `agent` (can modify files) | `ask` (read-only analysis) |
-| Session management | Supports --continue/--resume | Not supported |
-
-## Architecture
-
-```
-src/
-├── index.ts              # Plugin entry, registers /cursor command + cursor_agent tool
-├── types.ts              # Type definitions (config, events, parsed command)
-├── parser.ts             # Cursor Agent stream-json output parser
-├── runner.ts             # CLI process management, timeout control, event stream collection
-├── formatter.ts          # Event stream formatting to Markdown output
-├── process-registry.ts   # Global process registry, concurrency control, Gateway exit cleanup
-└── tool.ts               # Agent Tool factory function
-```
-
-### Two Invocation Paths
-
-```
-User Message
-  ├─ /cursor command ──→ registerCommand handler ──→ runCursorAgent ──→ result returned to user
-  └─ Regular chat ──→ PI Agent ──→ cursor_agent tool ──→ runCursorAgent ──→ tool result
-```
-
-### Subprocess Management
-
-- Uses `detached: true` on Unix to create isolated process groups, preventing accidental Gateway signal kills
-- Two-phase termination: SIGTERM (graceful exit) → 5 seconds → SIGKILL (force kill)
-- Global process registry tracks all active processes with concurrency limits
-- Automatic cleanup of all subprocesses on Gateway exit
 
 ## License
 
