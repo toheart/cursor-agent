@@ -134,7 +134,7 @@ Add the plugin source path to `plugins.load.paths` in `~/.openclaw/openclaw.json
 
 ```bash
 npm ci && npm run build && npm pack
-openclaw plugin install cursor-agent-0.1.0.tgz
+openclaw plugins install cursor-agent-0.1.0.tgz
 ```
 
 ### 4. Configure

@@ -31,7 +31,7 @@ function buildCommand(opts: RunOptions): { cmd: string; args: string[] } {
   }
 
   if (opts.enableMcp) {
-    agentArgs.push("--approve-mcps");
+    agentArgs.push("--approve-mcps", "--force");
   }
   if (opts.model) {
     agentArgs.push("--model", opts.model);
@@ -52,7 +52,7 @@ function buildCommand(opts: RunOptions): { cmd: string; args: string[] } {
     } else if (opts.mode !== "agent") {
       parts.push("--mode", opts.mode);
     }
-    if (opts.enableMcp) parts.push("--approve-mcps");
+    if (opts.enableMcp) parts.push("--approve-mcps", "--force");
     if (opts.model) parts.push("--model", `'${opts.model}'`);
     parts.push(`'${escaped}'`);
 
