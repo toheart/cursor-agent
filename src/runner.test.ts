@@ -247,6 +247,7 @@ describe("runCursorAgent", () => {
 
     const args = spawnMock.mock.calls[0]![1] as string[];
     expect(args).toContain("--approve-mcps");
+    expect(args).toContain("--force");
   });
 
   it("includes --model when model is specified", async () => {

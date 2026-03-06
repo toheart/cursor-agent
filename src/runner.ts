@@ -39,7 +39,7 @@ function buildCommand(opts: RunOptions): { cmd: string; args: string[]; shell: b
   }
 
   if (opts.enableMcp) {
-    cliArgs.push("--approve-mcps");
+    cliArgs.push("--approve-mcps", "--force");
   }
   if (opts.model) {
     cliArgs.push("--model", opts.model);
