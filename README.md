@@ -280,6 +280,10 @@ To enable Agent Tool:
 
 1. Ensure `enableAgentTool` is `true` (default)
 2. Add `cursor_agent` or `group:plugins` to `tools.allow` in OpenClaw configuration
+   
+**If you are using multiple agents:** 
+
+Please Adding cursor_agent to the global tools.allow in openclaw.json is not sufficient for agents to use the tool. Each agent that needs access you must also have cursor_agent listed in its own tools.alsoAllow array under agents.list[].tools.alsoAllow. Without this, the plugin registers successfully (visible in startup logs), but the agent cannot invoke the cursor_agent tool at runtime.
 
 ## Architecture
 
